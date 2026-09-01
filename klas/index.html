@@ -46,9 +46,14 @@ button{font:inherit}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
+import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
 import { getDatabase, ref, set, update, onDisconnect } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-database.js";
 const firebaseConfig={apiKey:"AIzaSyAuO4SubY_H9kCbVULsGNWW4ohVLxMP4AQ",authDomain:"mooistevis-volgorde.firebaseapp.com",databaseURL:"https://mooistevis-volgorde-default-rtdb.europe-west1.firebasedatabase.app",projectId:"mooistevis-volgorde",storageBucket:"mooistevis-volgorde.firebasestorage.app",messagingSenderId:"10014180900",appId:"1:10014180900:web:464938583246450be83ab1"};
-const db=getDatabase(initializeApp(firebaseConfig));
+const app=initializeApp(firebaseConfig);
+const auth=getAuth(app);
+const db=getDatabase(app);
+const credential=await signInAnonymously(auth);
+const ownerUid=credential.user.uid;
 const names=['vis','octopus','zeewier','ster','schelp','krab','kwal','zeepaardje','parel'];
 const sea=document.querySelector('#sea'),slotsEl=document.querySelector('#slots'),msg=document.querySelector('#message');
 const cards=[];let level=3,z=20;
@@ -59,7 +64,7 @@ document.querySelector('#code').textContent=session;
 const studentUrl=new URL('./spelen.html',location.href);studentUrl.search='?session='+encodeURIComponent(session);
 new QRCode(document.querySelector('#qr'),{text:studentUrl.href,width:124,height:124});
 onDisconnect(sessionRef).remove();
-await set(sessionRef,{level:3,command:{type:'reset',id:Date.now()}});
+await set(sessionRef,{owner:ownerUid,level:3,command:{type:'reset',id:Date.now()}});
 function flash(x){msg.textContent=x;msg.classList.add('show');setTimeout(()=>msg.classList.remove('show'),700)}
 function layout(){const r=sea.getBoundingClientRect(),bh=Math.min(190,Math.max(130,r.height*.22)),g=Math.max(5,Math.min(14,r.width*.008)),w=Math.max(65,Math.min(126,Math.floor((r.width-48-g*8)/9))),h=w*1.27,total=w*9+g*8,x=(r.width-total)/2,y=r.height-12-bh+(bh-h)/2+9;return{r,w,h,g,x,y}}
 function homes(){const a=layout();return cards.map((_,i)=>({x:a.x+i*(a.w+a.g),y:a.y,w:a.w}))}
