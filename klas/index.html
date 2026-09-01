@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Volgorde in de zee – leerkracht</title>
+<style>
+:root{--blue:#2b65b3;--bad:#e45d5d;--bank:clamp(130px,22vh,190px)}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;overflow:hidden;touch-action:none;font-family:ui-rounded,"Arial Rounded MT Bold",Arial,sans-serif;background:#dff6ff;color:#173f69}
+button{font:inherit}
+#app{height:100%;padding:max(10px,env(safe-area-inset-top)) max(10px,env(safe-area-inset-right)) max(10px,env(safe-area-inset-bottom)) max(10px,env(safe-area-inset-left));background:linear-gradient(#dff7ff 0 68%,#fff1bc 68%)}
+#sea{height:100%;position:relative;overflow:hidden;border:4px solid #9bdcec;border-radius:28px;background:linear-gradient(#eafcff 0 68%,#fff7d8 68%)}
+#toolbar{position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:40;display:flex;gap:10px;padding:10px 12px;background:#ffffffee;border:3px solid #a9deed;border-radius:24px}
+.tool{height:62px;min-width:62px;border:0;border-radius:18px;background:#fff;box-shadow:0 4px 10px #2457761e;color:var(--blue);font-size:28px;font-weight:900;display:grid;place-items:center}
+.tool.level{font-size:26px;border:3px solid #a9cce9;background:#f2f8ff}
+.tool.level.active{background:#d9f3ff;border-color:#55bad7;box-shadow:0 0 0 5px #55bad722}
+.tool.check{background:#eaf9ec;border:3px solid #83ce91}
+.tool.clear{background:#fff5d9;border:3px solid #edcf77}
+#qrBox{position:absolute;right:14px;top:14px;z-index:35;width:152px;padding:9px;background:#fff;border:3px solid #a9deed;border-radius:20px;text-align:center}
+#qr{width:124px;height:124px;display:block;margin:auto}
+#code{font-size:15px;font-weight:900;color:#2b65b3;margin-top:4px;letter-spacing:2px}
+#slots{position:absolute;left:0;right:0;top:120px;height:calc(68% - 135px);display:flex;justify-content:center;align-items:center;gap:clamp(12px,2vw,28px);pointer-events:none}
+.slot{width:clamp(112px,15vw,180px);aspect-ratio:.78;border:4px dashed #64a6cf88;border-radius:24px;background:#ffffff55;display:grid;place-items:center;font-size:clamp(34px,5vw,58px);font-weight:800;color:#4f8bb966}
+.slot.filled{border-color:#9bcde0aa}
+#bank{position:absolute;left:12px;right:12px;bottom:12px;height:var(--bank);background:#ffffffc9;border:3px solid #c4e9f3;border-radius:26px}
+.card{position:absolute;width:110px;background:white;border:3px solid #3472bd;border-radius:18px;padding:5px;box-shadow:0 7px 18px #194c7026;z-index:10;user-select:none;touch-action:none;transition:left .58s cubic-bezier(.2,.8,.2,1),top .58s cubic-bezier(.2,.8,.2,1),transform .18s}
+.card.dragging{transition:transform .12s;transform:scale(1.07);z-index:80}
+.card img{width:100%;display:block;border-radius:12px;pointer-events:none}.card .name{display:none}
+#message{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) scale(.7);z-index:70;font-size:76px;opacity:0;pointer-events:none;transition:.25s}
+#message.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
+</style>
+</head>
+<body><div id="app"><div id="sea">
+<div id="toolbar">
+<button class="tool level active" data-level="3">3</button>
+<button class="tool level" data-level="4">4</button>
+<button class="tool level" data-level="5">5</button>
+<button class="tool clear" id="clearBtn">🧹</button>
+<button class="tool check" id="checkBtn">✓</button>
+</div>
+<div id="qrBox"><div id="qr"></div><div id="code"></div></div>
+<div id="slots"></div><div id="bank"></div><div id="message"></div>
+</div></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
+import { getDatabase, ref, set, update, onDisconnect } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-database.js";
+const firebaseConfig={apiKey:"AIzaSyAuO4SubY_H9kCbVULsGNWW4ohVLxMP4AQ",authDomain:"mooistevis-volgorde.firebaseapp.com",databaseURL:"https://mooistevis-volgorde-default-rtdb.europe-west1.firebasedatabase.app",projectId:"mooistevis-volgorde",storageBucket:"mooistevis-volgorde.firebasestorage.app",messagingSenderId:"10014180900",appId:"1:10014180900:web:464938583246450be83ab1"};
+const db=getDatabase(initializeApp(firebaseConfig));
+const names=['vis','octopus','zeewier','ster','schelp','krab','kwal','zeepaardje','parel'];
+const sea=document.querySelector('#sea'),slotsEl=document.querySelector('#slots'),msg=document.querySelector('#message');
+const cards=[];let level=3,z=20;
+let session=new URLSearchParams(location.search).get('session');
+if(!session){session=Math.random().toString(36).slice(2,7).toUpperCase();history.replaceState(null,'',location.pathname+'?session='+session)}
+const sessionRef=ref(db,'sessions/'+session);
+document.querySelector('#code').textContent=session;
+const studentUrl=new URL('./spelen.html',location.href);studentUrl.search='?session='+encodeURIComponent(session);
+new QRCode(document.querySelector('#qr'),{text:studentUrl.href,width:124,height:124});
+onDisconnect(sessionRef).remove();
+await set(sessionRef,{level:3,command:{type:'reset',id:Date.now()}});
+function flash(x){msg.textContent=x;msg.classList.add('show');setTimeout(()=>msg.classList.remove('show'),700)}
+function layout(){const r=sea.getBoundingClientRect(),bh=Math.min(190,Math.max(130,r.height*.22)),g=Math.max(5,Math.min(14,r.width*.008)),w=Math.max(65,Math.min(126,Math.floor((r.width-48-g*8)/9))),h=w*1.27,total=w*9+g*8,x=(r.width-total)/2,y=r.height-12-bh+(bh-h)/2+9;return{r,w,h,g,x,y}}
+function homes(){const a=layout();return cards.map((_,i)=>({x:a.x+i*(a.w+a.g),y:a.y,w:a.w}))}
+function move(c,x,y,a=true){if(!a)c.style.transition='none';c.style.left=x+'px';c.style.top=y+'px';c.style.zIndex=++z;if(!a){c.offsetHeight;c.style.transition=''}}
+function makeSlots(){slotsEl.innerHTML='';for(let i=0;i<level;i++){const s=document.createElement('div');s.className='slot';s.textContent=i+1;s.dataset.card='';slotsEl.appendChild(s)}}
+function allHome(a=true){document.querySelectorAll('.slot').forEach(s=>{s.dataset.card='';s.classList.remove('filled')});const p=homes();cards.forEach((c,i)=>{c.style.width=p[i].w+'px';move(c,p[i].x,p[i].y,a)})}
+function slotCard(s){return cards.find(c=>c.dataset.n===s.dataset.card)}
+function returnHome(c){document.querySelectorAll('.slot').forEach(s=>{if(s.dataset.card===c.dataset.n){s.dataset.card='';s.classList.remove('filled')}});const i=cards.indexOf(c),p=homes()[i];move(c,p.x,p.y,true)}
+function snap(c){let best=null,d=Infinity;document.querySelectorAll('.slot').forEach(s=>{const r=s.getBoundingClientRect(),q=c.getBoundingClientRect(),v=Math.hypot(q.left+q.width/2-r.left-r.width/2,q.top+q.height/2-r.top-r.height/2);if(v<d){d=v;best=s}});if(!best||d>130){returnHome(c);return}const occ=slotCard(best);if(occ&&occ!==c)returnHome(occ);document.querySelectorAll('.slot').forEach(s=>{if(s.dataset.card===c.dataset.n){s.dataset.card='';s.classList.remove('filled')}});best.dataset.card=c.dataset.n;best.classList.add('filled');const br=best.getBoundingClientRect(),sr=sea.getBoundingClientRect(),cr=c.getBoundingClientRect();move(c,br.left-sr.left+(br.width-cr.width)/2,br.top-sr.top+(br.height-cr.height)/2,true)}
+function drag(c){let sx,sy,ox,oy,on=false;c.onpointerdown=e=>{e.preventDefault();sx=e.clientX;sy=e.clientY;ox=parseFloat(c.style.left)||0;oy=parseFloat(c.style.top)||0;c.setPointerCapture(e.pointerId);c.classList.add('dragging');c.style.transition='none';on=true};c.onpointermove=e=>{if(!on)return;const r=sea.getBoundingClientRect(),q=c.getBoundingClientRect();c.style.left=Math.max(2,Math.min(ox+e.clientX-sx,r.width-q.width-2))+'px';c.style.top=Math.max(2,Math.min(oy+e.clientY-sy,r.height-q.height-2))+'px';c.style.zIndex=++z};c.onpointerup=e=>{if(!on)return;on=false;c.classList.remove('dragging');c.style.transition='';try{c.releasePointerCapture(e.pointerId)}catch{}snap(c)}}
+async function load(){const [v,o,z1,g1,g2]=await Promise.all([fetch('../assets/vis.b64').then(r=>r.text()),fetch('../assets/octopus.b64').then(r=>r.text()),fetch('../assets/zeewier.b64').then(r=>r.text()),fetch('../assets/group1.json').then(r=>r.json()),fetch('../assets/group2.json').then(r=>r.json())]);const data={vis:v.trim(),octopus:o.trim(),zeewier:z1.trim(),...g1,...g2};names.forEach(n=>{const c=document.createElement('div');c.className='card';c.dataset.n=n;c.innerHTML=`<img src="data:image/jpeg;base64,${data[n]}" alt="${n}"><div class="name">${n}</div>`;sea.appendChild(c);cards.push(c);drag(c)});makeSlots();allHome(false)}
+document.querySelectorAll('[data-level]').forEach(b=>b.onclick=async()=>{level=Number(b.dataset.level);document.querySelectorAll('[data-level]').forEach(x=>x.classList.toggle('active',x===b));makeSlots();allHome(true);await update(sessionRef,{level,command:{type:'reset',id:Date.now()}});flash(level)});
+clearBtn.onclick=async()=>{allHome(true);await update(sessionRef,{command:{type:'reset',id:Date.now()}});flash('🧹')};
+checkBtn.onclick=async()=>{const ss=[...document.querySelectorAll('.slot')];if(ss.some(s=>!s.dataset.card)){flash('👆');return}await update(sessionRef,{command:{type:'check',id:Date.now(),answer:ss.map(s=>s.dataset.card)}});flash('✓')};
+window.onresize=()=>{makeSlots();allHome(false)};
+await load();
+</script></body></html>
