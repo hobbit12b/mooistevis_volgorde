@@ -1,0 +1,39 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "sessions": {
+      "$session": {
+        ".read": true,
+        ".write": "auth != null && ((!data.exists() && newData.child('owner').val() === auth.uid) || (data.exists() && data.child('owner').val() === auth.uid && (!newData.exists() || newData.child('owner').val() === auth.uid)))",
+        "owner": {
+          ".validate": "newData.isString() && newData.val() === auth.uid"
+        },
+        "level": {
+          ".validate": "newData.isNumber() && (newData.val() === 3 || newData.val() === 4 || newData.val() === 5)"
+        },
+        "command": {
+          ".validate": "newData.hasChildren(['type','id']) && newData.child('id').isNumber() && (newData.child('type').val() === 'reset' || newData.child('type').val() === 'check')",
+          "type": {
+            ".validate": "newData.val() === 'reset' || newData.val() === 'check'"
+          },
+          "id": {
+            ".validate": "newData.isNumber()"
+          },
+          "answer": {
+            ".validate": "!newData.exists() || newData.numChildren() <= 5",
+            "$i": {
+              ".validate": "newData.val() === 'vis' || newData.val() === 'octopus' || newData.val() === 'zeewier' || newData.val() === 'ster' || newData.val() === 'schelp' || newData.val() === 'krab' || newData.val() === 'kwal' || newData.val() === 'zeepaardje' || newData.val() === 'parel'"
+            }
+          },
+          "$other": {
+            ".validate": false
+          }
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
+    }
+  }
+}
