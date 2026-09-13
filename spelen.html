@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Volgorde in de zee</title>
+<style>
+:root{--bad:#e45d5d;--bank:clamp(135px,25vh,205px)}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;overflow:hidden;touch-action:none;font-family:ui-rounded,"Arial Rounded MT Bold",Arial,sans-serif;background:#dff6ff}
+#app{height:100%;padding:max(8px,env(safe-area-inset-top)) max(8px,env(safe-area-inset-right)) max(8px,env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left));background:linear-gradient(#dff7ff 0 68%,#fff1bc 68%)}
+#sea{height:100%;position:relative;overflow:hidden;border:4px solid #9bdcec;border-radius:26px;background:linear-gradient(#eafcff 0 68%,#fff7d8 68%)}
+#clearBtn{position:absolute;right:14px;top:14px;z-index:40;width:62px;height:62px;border-radius:18px;background:#fff5d9;border:3px solid #edcf77;box-shadow:0 5px 14px #24577622;font-size:31px}
+#slots{position:absolute;left:0;right:0;top:66px;height:calc(68% - 78px);display:flex;justify-content:center;align-items:center;gap:clamp(10px,2vw,24px);pointer-events:none}
+.slot{width:clamp(104px,18vw,165px);aspect-ratio:.78;border:4px dashed #64a6cf88;border-radius:23px;background:#ffffff55;display:grid;place-items:center;font-size:clamp(34px,6vw,56px);font-weight:900;color:#4f8bb966}
+.slot.filled{border-color:#9bcde0aa}
+.card{position:absolute;width:110px;background:#fff;border:3px solid #3472bd;border-radius:18px;padding:5px;box-shadow:0 7px 18px #194c7026;z-index:10;user-select:none;touch-action:none;transition:left .62s cubic-bezier(.2,.8,.2,1),top .62s cubic-bezier(.2,.8,.2,1),transform .18s,box-shadow .18s,border-color .18s}
+.card.dragging{transition:transform .12s,box-shadow .12s;transform:scale(1.07);box-shadow:0 16px 30px #194c7040;z-index:80}
+.card img{width:100%;display:block;border-radius:12px;pointer-events:none}.card .name{display:none}
+.card.wrong{border-color:var(--bad);box-shadow:0 0 0 6px #e45d5d33,0 7px 18px #194c7026;animation:shake .46s ease}
+@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-10px)}40%{transform:translateX(10px)}60%{transform:translateX(-8px)}80%{transform:translateX(8px)}}
+#bank{position:absolute;left:10px;right:10px;bottom:10px;height:var(--bank);background:#ffffffc9;border:3px solid #c4e9f3;border-radius:25px}
+#wait{position:absolute;inset:0;display:grid;place-items:center;z-index:100;background:linear-gradient(#e5faff,#fff3c8);font-size:70px}
+#wait.hide{display:none}
+</style>
+</head>
+<body><div id="app"><div id="sea">
+<button id="clearBtn">🧹</button>
+<div id="slots"></div><div id="bank"></div><div id="wait">🐠</div>
+</div></div>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
+import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-database.js";
+const firebaseConfig={apiKey:"AIzaSyAuO4SubY_H9kCbVULsGNWW4ohVLxMP4AQ",authDomain:"mooistevis-volgorde.firebaseapp.com",databaseURL:"https://mooistevis-volgorde-default-rtdb.europe-west1.firebasedatabase.app",projectId:"mooistevis-volgorde",storageBucket:"mooistevis-volgorde.firebasestorage.app",messagingSenderId:"10014180900",appId:"1:10014180900:web:464938583246450be83ab1"};
+const db=getDatabase(initializeApp(firebaseConfig));
+const names=['vis','octopus','zeewier','ster','schelp','krab','kwal','zeepaardje','parel'];
+const sea=document.querySelector('#sea'),slotsEl=document.querySelector('#slots'),wait=document.querySelector('#wait');
+const cards=[];let level=3,z=20,lastCommand=0,checking=false;
+const session=new URLSearchParams(location.search).get('session');
+function layout(){const r=sea.getBoundingClientRect(),bh=Math.min(205,Math.max(135,r.height*.25)),g=Math.max(4,Math.min(12,r.width*.007)),w=Math.max(60,Math.min(116,Math.floor((r.width-38-g*8)/9))),h=w*1.27,total=w*9+g*8,x=(r.width-total)/2,y=r.height-10-bh+(bh-h)/2+8;return{r,w,h,g,x,y}}
+function homes(){const a=layout();return cards.map((_,i)=>({x:a.x+i*(a.w+a.g),y:a.y,w:a.w}))}
+function move(c,x,y,a=true){if(!a)c.style.transition='none';c.style.left=x+'px';c.style.top=y+'px';c.style.zIndex=++z;if(!a){c.offsetHeight;c.style.transition=''}}
+function makeSlots(){slotsEl.innerHTML='';for(let i=0;i<level;i++){const s=document.createElement('div');s.className='slot';s.textContent=i+1;s.dataset.card='';slotsEl.appendChild(s)}}
+function allHome(a=true){document.querySelectorAll('.slot').forEach(s=>{s.dataset.card='';s.classList.remove('filled')});const p=homes();cards.forEach((c,i)=>{c.classList.remove('wrong');c.style.width=p[i].w+'px';move(c,p[i].x,p[i].y,a)})}
+function slotCard(s){return cards.find(c=>c.dataset.n===s.dataset.card)}
+function returnHome(c){document.querySelectorAll('.slot').forEach(s=>{if(s.dataset.card===c.dataset.n){s.dataset.card='';s.classList.remove('filled')}});const i=cards.indexOf(c),p=homes()[i];c.classList.remove('wrong');move(c,p.x,p.y,true)}
+function snap(c){let best=null,d=Infinity;document.querySelectorAll('.slot').forEach(s=>{const r=s.getBoundingClientRect(),q=c.getBoundingClientRect(),v=Math.hypot(q.left+q.width/2-r.left-r.width/2,q.top+q.height/2-r.top-r.height/2);if(v<d){d=v;best=s}});if(!best||d>130){returnHome(c);return}const occ=slotCard(best);if(occ&&occ!==c)returnHome(occ);document.querySelectorAll('.slot').forEach(s=>{if(s.dataset.card===c.dataset.n){s.dataset.card='';s.classList.remove('filled')}});best.dataset.card=c.dataset.n;best.classList.add('filled');const br=best.getBoundingClientRect(),sr=sea.getBoundingClientRect(),cr=c.getBoundingClientRect();move(c,br.left-sr.left+(br.width-cr.width)/2,br.top-sr.top+(br.height-cr.height)/2,true)}
+function drag(c){let sx,sy,ox,oy,on=false;c.onpointerdown=e=>{if(checking)return;e.preventDefault();sx=e.clientX;sy=e.clientY;ox=parseFloat(c.style.left)||0;oy=parseFloat(c.style.top)||0;c.setPointerCapture(e.pointerId);c.classList.add('dragging');c.style.transition='none';on=true};c.onpointermove=e=>{if(!on)return;const r=sea.getBoundingClientRect(),q=c.getBoundingClientRect();c.style.left=Math.max(2,Math.min(ox+e.clientX-sx,r.width-q.width-2))+'px';c.style.top=Math.max(2,Math.min(oy+e.clientY-sy,r.height-q.height-2))+'px';c.style.zIndex=++z};c.onpointerup=e=>{if(!on)return;on=false;c.classList.remove('dragging');c.style.transition='';try{c.releasePointerCapture(e.pointerId)}catch{}snap(c)}}
+function doCheck(answer){const ss=[...document.querySelectorAll('.slot')];if(!Array.isArray(answer)||answer.length!==level)return;checking=true;const wrong=[];ss.forEach((s,i)=>{const c=slotCard(s);if(c&&s.dataset.card!==answer[i]){c.classList.add('wrong');wrong.push(c)}});if(!wrong.length){checking=false;return}setTimeout(()=>wrong.forEach(c=>c.classList.remove('wrong')),520);setTimeout(()=>wrong.forEach(returnHome),650);setTimeout(()=>checking=false,1350)}
+async function load(){const [v,o,z1,g1,g2]=await Promise.all([fetch('../assets/vis.b64').then(r=>r.text()),fetch('../assets/octopus.b64').then(r=>r.text()),fetch('../assets/zeewier.b64').then(r=>r.text()),fetch('../assets/group1.json').then(r=>r.json()),fetch('../assets/group2.json').then(r=>r.json())]);const data={vis:v.trim(),octopus:o.trim(),zeewier:z1.trim(),...g1,...g2};names.forEach(n=>{const c=document.createElement('div');c.className='card';c.dataset.n=n;c.innerHTML=`<img src="data:image/jpeg;base64,${data[n]}" alt="${n}"><div class="name">${n}</div>`;sea.appendChild(c);cards.push(c);drag(c)});makeSlots();allHome(false)}
+if(!session){wait.textContent='❌'}else{await load();onValue(ref(db,'sessions/'+session),snap=>{const v=snap.val();if(!v)return;wait.classList.add('hide');if(v.level&&v.level!==level){level=v.level;makeSlots();allHome(true)}const cmd=v.command;if(cmd&&cmd.id&&cmd.id!==lastCommand){lastCommand=cmd.id;if(cmd.type==='reset')allHome(true);if(cmd.type==='check')doCheck(cmd.answer)}})}
+clearBtn.onclick=()=>{if(!checking)allHome(true)};
+window.onresize=()=>{makeSlots();allHome(false)};
+</script></body></html>
